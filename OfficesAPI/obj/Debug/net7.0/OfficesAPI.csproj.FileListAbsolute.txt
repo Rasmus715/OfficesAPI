@@ -44,3 +44,7 @@
 /Volumes/Media/Projects/OfficesAPI/OfficesAPI/obj/Debug/net7.0/OfficesAPI.genruntimeconfig.cache
 /Volumes/Media/Projects/OfficesAPI/OfficesAPI/obj/Debug/net7.0/ref/OfficesAPI.dll
 /Volumes/Media/Projects/OfficesAPI/OfficesAPI/bin/Debug/net7.0/FluentValidation.dll
+/Volumes/Media/Projects/OfficesAPI/OfficesAPI/bin/Debug/net7.0/RabbitMQ.Client.dll
+/Volumes/Media/Projects/OfficesAPI/OfficesAPI/bin/Debug/net7.0/CommunicationModels.dll
+/Volumes/Media/Projects/OfficesAPI/OfficesAPI/bin/Debug/net7.0/CommunicationModels.pdb
+/Volumes/Media/Projects/OfficesAPI/OfficesAPI/bin/Debug/net7.0/Microsoft.IO.RecyclableMemoryStream.dll
