@@ -1,6 +1,6 @@
-using System.Diagnostics;
-using System.Reflection;
 using AutoMapper;
+using Microsoft.Extensions.Options;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using OfficesAPI.Data;
 using OfficesAPI.Models;
@@ -13,7 +13,7 @@ public interface IOfficeService
     Task<List<Office>> GetAsync();
     Task<Office?> GetAsync(Guid id);
     Task<Office> CreateAsync(OfficeViewModel vm);
-    Task<Office> UpdateAsync(Guid id, OfficeViewModel updatedOffice);
+    Task<Office> UpdateAsync(Office office);
     Task RemoveAsync(Guid id);
 }
 
@@ -22,21 +22,23 @@ public class OfficeService : IOfficeService
     private readonly IMongoCollection<Office> _officesCollection;
     private readonly Mapper _mapper;
 
-    public OfficeService(AppDbContext dbContext)
+    public OfficeService(IOptions<OfficesDatabaseSettings> settings, IMongoClient mongoClient)
     {
-        _officesCollection = dbContext.GetCollection();
-        var config = new MapperConfiguration(cfg => cfg.CreateMap<OfficeViewModel, Office>());
-        _mapper = new Mapper(config);
+        var mongoDatabase = mongoClient.GetDatabase(settings.Value.DatabaseName);
+        _officesCollection = mongoDatabase.GetCollection<Office>(settings.Value.OfficesCollection);
+        _mapper = new Mapper(new MapperConfiguration(cfg => cfg.CreateMap<OfficeViewModel, Office>()));
     }
 
     public async Task<List<Office>> GetAsync()
     {
-        return await _officesCollection.Find(_ => true).ToListAsync();
+        using var cursor =  await _officesCollection.FindAsync(new BsonDocument());
+        return await cursor.ToListAsync();
     }
 
     public async Task<Office?> GetAsync(Guid id)
     {
-        return await _officesCollection.Find(x => x.Id == id).FirstOrDefaultAsync();
+        using var cursor = await _officesCollection.FindAsync(x => x.Id == id);
+        return await cursor.FirstOrDefaultAsync();
     }
     
     public async Task<Office> CreateAsync(OfficeViewModel vm)
@@ -47,17 +49,22 @@ public class OfficeService : IOfficeService
         return office;
     }
 
-    public async Task<Office> UpdateAsync(Guid id, OfficeViewModel updatedOffice)
+    public async Task<Office> UpdateAsync(Office office)
     {
-        var newOffice = _mapper.Map<Office>(updatedOffice);
-        newOffice.Id = id;
-        await _officesCollection.ReplaceOneAsync(x => x.Id == id, newOffice);
-        return newOffice;
+        var result = await _officesCollection.ReplaceOneAsync(x => x.Id == office.Id, office);
+
+        if (result.IsAcknowledged)
+            return office;
+         
+        throw new ArgumentException("Unable to update the entity");
     }
 
     public async Task RemoveAsync(Guid id)
     {
-        await _officesCollection.DeleteOneAsync(x => x.Id == id);
+        var result = await _officesCollection.DeleteOneAsync(x => x.Id == id);
+
+        if (!result.IsAcknowledged)
+            throw new ArgumentException("Unable to delete the entity");
     }
 }
 

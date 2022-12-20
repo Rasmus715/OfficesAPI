@@ -19,6 +19,6 @@ public class AppDbContext
             officesDatabaseSettings.Value.OfficesCollection);
     }
 
-    public IMongoCollection<Office> GetCollection()
+    public virtual IMongoCollection<Office> GetCollection()
         => _officesCollection;
 }

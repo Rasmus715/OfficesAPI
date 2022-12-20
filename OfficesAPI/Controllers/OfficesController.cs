@@ -1,9 +1,5 @@
-using System.Text.Json;
-using CommunicationModels;
 using FluentValidation;
-using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
-using OfficesAPI.RabbitMq;
 using OfficesAPI.Services;
 using OfficesAPI.ViewModels;
 using Office = OfficesAPI.Models.Office;
@@ -16,13 +12,13 @@ public class OfficesController : ControllerBase
 {
     private readonly IOfficeService _officeService;
     private readonly IValidator<OfficeViewModel> _officeViewModelValidator;
-    private readonly IRabbitMqService _rabbitMqService;
+    private readonly IValidator<Office> _officeValidator;
 
-    public OfficesController(IOfficeService officeService, IValidator<OfficeViewModel> validator, IRabbitMqService rabbitMqService)
+    public OfficesController(IOfficeService officeService, IValidator<OfficeViewModel> validator, IValidator<Office> officeValidator)
     {
         _officeService = officeService;
         _officeViewModelValidator = validator;
-        _rabbitMqService = rabbitMqService;
+        _officeValidator = officeValidator;
     }
 
     [HttpGet]
@@ -61,24 +57,26 @@ public class OfficesController : ControllerBase
     }
     
     [HttpPatch]
-    public async Task<IActionResult> Update([FromQuery]Guid id , [FromBody]OfficeViewModel vm)
+    public async Task<IActionResult> Update(Office newOffice)
     {
 
         await LogBody();
-        var validateResult = await _officeViewModelValidator.ValidateAsync(vm);
+        var validateResult = await _officeValidator.ValidateAsync(newOffice);
         if (!validateResult.IsValid)
         {
             return UnprocessableEntity(new { errors = validateResult.Errors.Select(i=>i.ErrorMessage)});
         }
         
-        var book = await _officeService.GetAsync(id);
+        var office = await _officeService.GetAsync(newOffice.Id);
 
-        if (book is null)
+        if (office is null)
         {
             return NotFound();
         }
 
-        return Ok(await _officeService.UpdateAsync(id, vm));
+        await _officeService.UpdateAsync(newOffice);
+        
+        return Ok();
     }
     
     [HttpDelete]
@@ -114,24 +112,5 @@ public class OfficesController : ControllerBase
         HttpContext.Request.Body = originalRequestBody;
 
         Console.WriteLine(requestBodyText);
-    }
-    private async Task Log(HttpRequest request)
-    {
-        var req2 = request;
-        var req = request.Body;
-        var json = JsonSerializer.Serialize(request);
-
-        _rabbitMqService.SendMessage(new RabbitLog
-        {
-            Id = Guid.NewGuid().ToString(),
-            Date = DateTime.Now,
-            ServiceName = "OfficesAPI",
-            MethodName = GetControllerData(),
-            MethodBody = json
-        });
-    }
-    private string GetControllerData()
-    {
-        return $"{ControllerContext.RouteData.Values["controller"]}/{ControllerContext.RouteData.Values["action"]}";
     }
 }

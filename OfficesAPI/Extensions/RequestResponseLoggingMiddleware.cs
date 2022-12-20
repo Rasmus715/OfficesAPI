@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CommunicationModels;
+using MassTransit;
 using Microsoft.IO;
 using OfficesAPI.RabbitMq;
 
@@ -18,13 +19,13 @@ public class RequestResponseLoggingMiddleware
         _recyclableMemoryStreamManager = new RecyclableMemoryStreamManager();
     }
     
-    public async Task Invoke(HttpContext context)
+    public async Task Invoke(HttpContext context, IPublishEndpoint publishEndpoint)
     {
-        await LogRequest(context);
+        await LogRequest(context, publishEndpoint);
         await _next(context);
     }
 
-    private async Task LogRequest(HttpContext context)
+    private async Task LogRequest(HttpContext context, IPublishEndpoint publishEndpoint)
     {
         context.Request.EnableBuffering();
         await using var requestStream = _recyclableMemoryStreamManager.GetStream();
@@ -41,12 +42,18 @@ public class RequestResponseLoggingMiddleware
                 Body = ReadStreamInChunks(requestStream)
             })
         };
+        
         Console.WriteLine(JsonSerializer.Serialize(obj));
-        _rabbitMqService.SendMessage(obj);
+
+        await publishEndpoint.Publish(obj, publishContext =>
+        {
+            publishContext.TimeToLive = TimeSpan.FromSeconds(10);
+        });
+        
+        //_rabbitMqService.SendMessage(obj);
         context.Request.Body.Position = 0;
     }
-    
-    
+
     private static string ReadStreamInChunks(Stream stream)
     {
         const int readChunkBufferLength = 4096;

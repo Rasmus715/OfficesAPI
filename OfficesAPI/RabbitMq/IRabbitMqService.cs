@@ -23,19 +23,23 @@ public class RabbitMqService : IRabbitMqService
         using var connection = factory.CreateConnection();
         using var channel = connection.CreateModel();
         
-        channel.QueueDeclare(
-            "LogsQueue",
-            false,
-            false,
-            false,
-            null);
-
         var body = Encoding.UTF8.GetBytes(message);
-
+        
+        var properties = channel.CreateBasicProperties();
+        
+        properties.Headers = new Dictionary<string, object>
+        {
+            {
+                "type", "logs"
+            }
+        };
+        
+        properties.Expiration = "10000";
+        
         channel.BasicPublish(
-            "",
-            "LogsQueue",
-            null,
+            "LogsExchangeHeaders",
+            string.Empty,
+            properties,
             body);
     }
 }
